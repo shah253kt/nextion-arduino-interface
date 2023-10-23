@@ -1,41 +1,19 @@
 #pragma once
 
 #include "Arduino.h"
+#include "NextionConstants.h"
 
-namespace NextionConstants
+struct NextionComponent
 {
-    constexpr uint8_t TERMINATION_BYTES[] = {0xFF, 0xFF, 0xFF};
-    constexpr auto COMMAND_SEPARATOR = 0x20;
-    constexpr auto PARAMETER_SEPARATOR = ',';
-    constexpr auto NUMERIC_ATTRIBUTE = ".val";
-    constexpr auto TEXT_ATTRIBUTE = ".txt";
-
-    enum class Command : uint16_t
+    NextionComponent(uint8_t id, const char *name)
     {
-        Reset,
-        Get,
-        ChangePage,
-        Refresh,
-        Click,
-        GetPageNumber,
-        Convert,
-        SetVisibility,
-        EnableTouchEvent
-    };
+        this->id = id;
+        strcpy(this->name, name);
+    }
 
-    enum class ClickEvent : uint8_t
-    {
-        Released,
-        Pressed
-    };
-
-    enum class ConversionFormat : uint8_t
-    {
-        Integer,
-        CommaSeparated,
-        Hexadecimal
-    };
-}
+    uint8_t id;
+    char name[NextionConstants::MAX_COMPONENT_NAME_LENGTH];
+};
 
 class Nextion
 {
@@ -46,14 +24,21 @@ public:
     void update();
     void reset();
     void sendRaw(const char *raw);
-    void assignText(const char *objectName, const char *value);
-    void assignNumeric(const char *objectName, int value);
+    void setText(const char *objectName, const char *value);
+    void setText(const NextionComponent &component, const char *value);
+    void setInteger(const char *objectName, int value);
+    void setInteger(const NextionComponent &component, int value);
 
     template <typename T>
     void get(T item)
     {
         sendCommand(NextionConstants::Command::Get, item);
     }
+
+    void getText(const char *objectName);
+    void getText(const NextionComponent &component);
+    void getInteger(const char *objectName);
+    void getInteger(const NextionComponent &component);
 
     template <typename T>
     void changePage(T page)
@@ -76,8 +61,12 @@ public:
     }
 
     void getCurrentPageNumber();
+
     void convertTextToNumeric(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format = NextionConstants::ConversionFormat::Integer);
+    void convertTextToNumeric(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format = NextionConstants::ConversionFormat::Integer);
+
     void convertNumericToText(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format = NextionConstants::ConversionFormat::Integer);
+    void convertNumericToText(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format = NextionConstants::ConversionFormat::Integer);
 
     template <typename T>
     void setVisibility(T item, bool visible)
@@ -107,8 +96,22 @@ public:
         setTouchEvent(item, false);
     }
 
+    void sleep(bool sleepMode);
+
+    void (*onTouchEvent)(uint8_t pageNumber, uint8_t componentId, NextionConstants::ClickEvent event);
+    void (*onPageNumberUpdated)(uint8_t pageNumber);
+    void (*onNumericDataReceived)(uint32_t data);
+    void (*onStringDataReceived)(char *data);
+    void (*onUnhandledReturnCodeReceived)(uint8_t returnCode);
+
 private:
     Stream *m_stream;
+    uint8_t m_buffer[NextionConstants::MAX_BUFFER_SIZE];
+    uint8_t m_currentIndex;
+
+    [[nodiscard]] bool isBufferTerminated();
+    void processBuffer();
+    [[nodiscard]] uint8_t payloadSize();
 
     void writeTerminationBytes();
     void writeCommand(NextionConstants::Command command);
@@ -124,11 +127,15 @@ private:
         writeTerminationBytes();
     }
 
+    void sendCommand(NextionConstants::Command command, const NextionComponent &component);
+
     template <typename T>
     void sendParameterList(T param)
     {
         m_stream->print(param);
     }
+
+    void sendParameterList(const NextionComponent &component);
 
     template <typename TFirst, typename... TRest>
     void sendParameterList(TFirst first, TRest... rest)
