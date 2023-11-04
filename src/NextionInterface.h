@@ -3,29 +3,58 @@
 #include "Arduino.h"
 #include "NextionConstants.h"
 
-struct NextionComponent
+#include <LinkedList.h>
+
+using ComponentId = uint8_t;
+
+class NextionComponent
 {
-    NextionComponent(uint8_t id, const char *name)
+public:
+    explicit NextionComponent(uint8_t pageId, ComponentId id, const char *name)
+        : m_pageId(pageId), m_id(id)
     {
-        this->id = id;
-        this->name = new char[strlen(name) + 1];
-        strcpy(this->name, name);
+        m_name = new char[strlen(name) + 1];
+        strcpy(m_name, name);
     }
 
     ~NextionComponent()
     {
-        delete name;
+        delete m_name;
     }
 
-    uint8_t id;
-    char *name;
+    [[nodiscard]] uint8_t pageId() const
+    {
+        return m_pageId;
+    }
+
+    [[nodiscard]] ComponentId id() const
+    {
+        return m_id;
+    }
+
+    [[nodiscard]] char *name() const
+    {
+        return m_name;
+    }
+
+    void (*onTouchEvent)(NextionConstants::ClickEvent event);
+    void (*onNumericDataReceived)(uint32_t data);
+    void (*onStringDataReceived)(char *data);
+
+private:
+    uint8_t m_pageId;
+    ComponentId m_id;
+    char *m_name;
 };
 
 class NextionInterface
 {
 public:
-    NextionInterface(Stream &stream);
+    explicit NextionInterface(Stream &stream);
     ~NextionInterface() = default;
+
+    void registerComponent(NextionComponent &component);
+    [[nodiscard]] NextionComponent *getComponent(uint8_t pageId, ComponentId componentId);
 
     void update();
     void reset();
@@ -57,7 +86,7 @@ public:
         writeTerminationBytes();
     }
 
-    void getCurrentPageNumber();
+    void getCurrentPageId();
 
     void convertTextToNumeric(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format = NextionConstants::ConversionFormat::Integer);
     void convertTextToNumeric(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format = NextionConstants::ConversionFormat::Integer);
@@ -95,8 +124,8 @@ public:
 
     void sleep(bool sleepMode);
 
-    void (*onTouchEvent)(uint8_t pageNumber, uint8_t componentId, NextionConstants::ClickEvent event);
-    void (*onPageNumberUpdated)(uint8_t pageNumber);
+    void (*onTouchEvent)(uint8_t pageId, ComponentId componentId, NextionConstants::ClickEvent event);
+    void (*onPageIdUpdated)(uint8_t pageId);
     void (*onNumericDataReceived)(const NextionComponent *component, uint32_t data);
     void (*onStringDataReceived)(const NextionComponent *component, char *data);
     void (*onUnhandledReturnCodeReceived)(uint8_t returnCode);
@@ -105,6 +134,7 @@ private:
     Stream *m_stream;
     uint8_t m_buffer[NextionConstants::MAX_BUFFER_SIZE];
     uint8_t m_currentIndex;
+    LinkedList<NextionComponent *> m_components;
 
     NextionComponent *m_componentRetrievingText;
     NextionComponent *m_componentRetrievingInteger;

@@ -18,7 +18,7 @@ namespace NextionConstants
         ChangePage,
         Refresh,
         Click,
-        GetPageNumber,
+        GetPageId,
         Convert,
         SetVisibility,
         EnableTouchEvent,
@@ -75,7 +75,7 @@ namespace NextionConstants
         // Return codes not affected by bkcmd value
         SerialBufferOverflow = 0x24,
         TouchEvent = 0x65,
-        CurrentPageNumber = 0x66,
+        CurrentPageId = 0x66,
         TouchCoordinateAwake = 0x67,
         TouchCoordinateSleep = 0x68,
         StringDataEnclosed = 0x70,

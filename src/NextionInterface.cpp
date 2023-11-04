@@ -8,6 +8,25 @@ NextionInterface::NextionInterface(Stream &stream)
 {
 }
 
+void NextionInterface::registerComponent(NextionComponent &component)
+{
+    m_components.add(&component);
+}
+
+NextionComponent *NextionInterface::getComponent(uint8_t pageId, ComponentId componentId)
+{
+    for (size_t i = 0; i < m_components.size(); i++)
+    {
+        const auto component = m_components.get(i);
+        if (component->id() == componentId && component->pageId() == pageId)
+        {
+            return component;
+        }
+    }
+
+    return nullptr;
+}
+
 void NextionInterface::update()
 {
     if (!m_stream->available())
@@ -49,29 +68,29 @@ void NextionInterface::sendRaw(const char *raw)
 
 void NextionInterface::setText(const NextionComponent &component, const char *value)
 {
-    setText(component.name, value);
+    setText(component.name(), value);
 }
 
 void NextionInterface::setInteger(const NextionComponent &component, int value)
 {
-    setInteger(component.name, value);
+    setInteger(component.name(), value);
 }
 
 void NextionInterface::getText(const NextionComponent &component)
 {
     m_componentRetrievingText = const_cast<NextionComponent *>(&component);
-    getText(component.name);
+    getText(component.name());
 }
 
 void NextionInterface::getInteger(const NextionComponent &component)
 {
     m_componentRetrievingInteger = const_cast<NextionComponent *>(&component);
-    getInteger(component.name);
+    getInteger(component.name());
 }
 
-void NextionInterface::getCurrentPageNumber()
+void NextionInterface::getCurrentPageId()
 {
-    sendCommand(NextionConstants::Command::GetPageNumber);
+    sendCommand(NextionConstants::Command::GetPageId);
 }
 
 void NextionInterface::convertTextToNumeric(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format)
@@ -85,7 +104,7 @@ void NextionInterface::convertTextToNumeric(const char *sourceObjectName, const 
 
 void NextionInterface::convertTextToNumeric(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format)
 {
-    convertTextToNumeric(source.name, destination.name, length, format);
+    convertTextToNumeric(source.name(), destination.name(), length, format);
 }
 
 void NextionInterface::convertNumericToText(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format)
@@ -99,7 +118,7 @@ void NextionInterface::convertNumericToText(const char *sourceObjectName, const 
 
 void NextionInterface::convertNumericToText(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format)
 {
-    convertNumericToText(source.name, destination.name, length, format);
+    convertNumericToText(source.name(), destination.name(), length, format);
 }
 
 void NextionInterface::sleep(bool isSleep)
@@ -136,7 +155,20 @@ void NextionInterface::processBuffer()
     {
     case ReturnCode::TouchEvent:
     {
-        if (onTouchEvent == nullptr || payloadSize() != ExpectedPayloadSize::TOUCH_EVENT)
+        if (payloadSize() != ExpectedPayloadSize::TOUCH_EVENT)
+        {
+            return;
+        }
+
+        const auto component = getComponent(m_buffer[1], m_buffer[2]);
+        
+        if (component != nullptr && component->onTouchEvent != nullptr)
+        {
+            component->onTouchEvent(static_cast<ClickEvent>(m_buffer[3]));
+            return;
+        }
+
+        if (onTouchEvent == nullptr)
         {
             return;
         }
@@ -144,14 +176,14 @@ void NextionInterface::processBuffer()
         onTouchEvent(m_buffer[1], m_buffer[2], static_cast<ClickEvent>(m_buffer[3]));
         break;
     }
-    case ReturnCode::CurrentPageNumber:
+    case ReturnCode::CurrentPageId:
     {
-        if (onPageNumberUpdated == nullptr || payloadSize() != ExpectedPayloadSize::CURRENT_PAGE_NUMBER)
+        if (onPageIdUpdated == nullptr || payloadSize() != ExpectedPayloadSize::CURRENT_PAGE_NUMBER)
         {
             return;
         }
 
-        onPageNumberUpdated(m_buffer[1]);
+        onPageIdUpdated(m_buffer[1]);
         break;
     }
     case ReturnCode::NumericDataEnclosed:
@@ -163,7 +195,17 @@ void NextionInterface::processBuffer()
             return;
         }
 
-        onNumericDataReceived(m_componentRetrievingInteger, m_buffer[1] | m_buffer[2] << 8 | m_buffer[3] << 16 | m_buffer[4] << 24);
+        uint32_t numericValue = m_buffer[1] | m_buffer[2] << 8 | m_buffer[3] << 16 | m_buffer[4] << 24;
+
+        if (m_componentRetrievingInteger->onNumericDataReceived != nullptr)
+        {
+            m_componentRetrievingInteger->onNumericDataReceived(numericValue);
+        }
+        else
+        {
+            onNumericDataReceived(m_componentRetrievingInteger, numericValue);
+        }
+
         break;
     }
     case ReturnCode::StringDataEnclosed:
@@ -182,7 +224,16 @@ void NextionInterface::processBuffer()
         }
 
         payload[dataLength - 1] = '\0';
-        onStringDataReceived(m_componentRetrievingText, payload);
+
+        if (m_componentRetrievingText->onStringDataReceived != nullptr)
+        {
+            m_componentRetrievingText->onStringDataReceived(payload);
+        }
+        else
+        {
+            onStringDataReceived(m_componentRetrievingText, payload);
+        }
+
         break;
     }
     default:
@@ -242,7 +293,7 @@ const char *NextionInterface::getCommand(NextionConstants::Command command)
     {
         return "click";
     }
-    case Command::GetPageNumber:
+    case Command::GetPageId:
     {
         return "sendme";
     }
@@ -275,12 +326,12 @@ void NextionInterface::sendCommand(NextionConstants::Command command)
 
 void NextionInterface::sendCommand(NextionConstants::Command command, const NextionComponent &component)
 {
-    sendCommand(command, component.name);
+    sendCommand(command, component.name());
 }
 
 void NextionInterface::sendParameterList(const NextionComponent &component)
 {
-    sendParameterList(component.name);
+    sendParameterList(component.name());
 }
 
 void NextionInterface::setText(const char *objectName, const char *value)
