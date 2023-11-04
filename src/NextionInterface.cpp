@@ -1,14 +1,14 @@
-#include "Nextion.h"
+#include "NextionInterface.h"
 
 #define digits(x) int(floor(log(x) + 1))
 
-Nextion::Nextion(Stream &stream)
+NextionInterface::NextionInterface(Stream &stream)
     : m_stream(&stream),
       m_currentIndex(0)
 {
 }
 
-void Nextion::update()
+void NextionInterface::update()
 {
     if (!m_stream->available())
     {
@@ -36,71 +36,45 @@ void Nextion::update()
     }
 }
 
-void Nextion::reset()
+void NextionInterface::reset()
 {
     sendCommand(NextionConstants::Command::Reset);
 }
 
-void Nextion::sendRaw(const char *raw)
+void NextionInterface::sendRaw(const char *raw)
 {
     m_stream->print(raw);
     writeTerminationBytes();
 }
 
-void Nextion::setText(const char *objectName, const char *value)
-{
-    char result[strlen(objectName) + strlen(NextionConstants::TEXT_ATTRIBUTE) + strlen(value) + 4];
-    sprintf(result, "%s%s=\"%s\"", objectName, NextionConstants::TEXT_ATTRIBUTE, value);
-    sendRaw(result);
-}
-
-void Nextion::setText(const NextionComponent &component, const char *value)
+void NextionInterface::setText(const NextionComponent &component, const char *value)
 {
     setText(component.name, value);
 }
 
-void Nextion::setInteger(const char *objectName, int value)
-{
-    char result[strlen(objectName) + strlen(NextionConstants::NUMERIC_ATTRIBUTE) + digits(value) + 2];
-    sprintf(result, "%s%s=%d", objectName, NextionConstants::NUMERIC_ATTRIBUTE, value);
-    sendRaw(result);
-}
-
-void Nextion::setInteger(const NextionComponent &component, int value)
+void NextionInterface::setInteger(const NextionComponent &component, int value)
 {
     setInteger(component.name, value);
 }
 
-void Nextion::getText(const char *objectName)
+void NextionInterface::getText(const NextionComponent &component)
 {
-    char tmp[strlen(objectName) + strlen(NextionConstants::TEXT_ATTRIBUTE) + 1];
-    sprintf(tmp, "%s%s", objectName, NextionConstants::TEXT_ATTRIBUTE);
-    get(tmp);
-}
-
-void Nextion::getText(const NextionComponent &component)
-{
+    m_componentRetrievingText = const_cast<NextionComponent *>(&component);
     getText(component.name);
 }
 
-void Nextion::getInteger(const char *objectName)
+void NextionInterface::getInteger(const NextionComponent &component)
 {
-    char tmp[strlen(objectName) + strlen(NextionConstants::NUMERIC_ATTRIBUTE) + 1];
-    sprintf(tmp, "%s%s", objectName, NextionConstants::NUMERIC_ATTRIBUTE);
-    get(tmp);
-}
-
-void Nextion::getInteger(const NextionComponent &component)
-{
+    m_componentRetrievingInteger = const_cast<NextionComponent *>(&component);
     getInteger(component.name);
 }
 
-void Nextion::getCurrentPageNumber()
+void NextionInterface::getCurrentPageNumber()
 {
     sendCommand(NextionConstants::Command::GetPageNumber);
 }
 
-void Nextion::convertTextToNumeric(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format)
+void NextionInterface::convertTextToNumeric(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format)
 {
     char src[strlen(sourceObjectName) + strlen(NextionConstants::TEXT_ATTRIBUTE) + 1];
     char dest[strlen(destinationObjectName) + strlen(NextionConstants::NUMERIC_ATTRIBUTE) + 1];
@@ -109,12 +83,12 @@ void Nextion::convertTextToNumeric(const char *sourceObjectName, const char *des
     convert(src, dest, length, format);
 }
 
-void Nextion::convertTextToNumeric(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format)
+void NextionInterface::convertTextToNumeric(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format)
 {
     convertTextToNumeric(source.name, destination.name, length, format);
 }
 
-void Nextion::convertNumericToText(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format)
+void NextionInterface::convertNumericToText(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format)
 {
     char src[strlen(sourceObjectName) + strlen(NextionConstants::TEXT_ATTRIBUTE) + 1];
     char dest[strlen(destinationObjectName) + strlen(NextionConstants::NUMERIC_ATTRIBUTE) + 1];
@@ -123,19 +97,19 @@ void Nextion::convertNumericToText(const char *sourceObjectName, const char *des
     convert(src, dest, length, format);
 }
 
-void Nextion::convertNumericToText(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format)
+void NextionInterface::convertNumericToText(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format)
 {
     convertNumericToText(source.name, destination.name, length, format);
 }
 
-void Nextion::sleep(bool isSleep)
+void NextionInterface::sleep(bool isSleep)
 {
     sendCommand(NextionConstants::Command::Sleep, isSleep);
 }
 
 // Private methods
 
-bool Nextion::isBufferTerminated()
+bool NextionInterface::isBufferTerminated()
 {
     if (m_currentIndex < NextionConstants::TERMINATION_BYTES_SIZE)
     {
@@ -153,23 +127,24 @@ bool Nextion::isBufferTerminated()
     return true;
 }
 
-void Nextion::processBuffer()
+void NextionInterface::processBuffer()
 {
     using namespace NextionConstants;
+    const auto returnCode = static_cast<ReturnCode>(m_buffer[0]);
 
-    switch (m_buffer[0])
+    switch (returnCode)
     {
-    case static_cast<uint8_t>(ReturnCode::TouchEvent):
+    case ReturnCode::TouchEvent:
     {
         if (onTouchEvent == nullptr || payloadSize() != ExpectedPayloadSize::TOUCH_EVENT)
         {
             return;
         }
 
-        onTouchEvent(m_buffer[1], m_buffer[2], m_buffer[3] == static_cast<uint8_t>(ClickEvent::Pressed) ? ClickEvent::Pressed : ClickEvent::Released);
+        onTouchEvent(m_buffer[1], m_buffer[2], static_cast<ClickEvent>(m_buffer[3]));
         break;
     }
-    case static_cast<uint8_t>(ReturnCode::CurrentPageNumber):
+    case ReturnCode::CurrentPageNumber:
     {
         if (onPageNumberUpdated == nullptr || payloadSize() != ExpectedPayloadSize::CURRENT_PAGE_NUMBER)
         {
@@ -179,19 +154,21 @@ void Nextion::processBuffer()
         onPageNumberUpdated(m_buffer[1]);
         break;
     }
-    case static_cast<uint8_t>(ReturnCode::NumericDataEnclosed):
+    case ReturnCode::NumericDataEnclosed:
     {
-        if (onNumericDataReceived == nullptr || payloadSize() != ExpectedPayloadSize::NUMERIC_DATA_ENCLOSED)
+        if (onNumericDataReceived == nullptr ||
+            m_componentRetrievingInteger == nullptr ||
+            payloadSize() != ExpectedPayloadSize::NUMERIC_DATA_ENCLOSED)
         {
             return;
         }
 
-        onNumericDataReceived(m_buffer[1] | m_buffer[2] << 8 | m_buffer[3] << 16 | m_buffer[4] << 24);
+        onNumericDataReceived(m_componentRetrievingInteger, m_buffer[1] | m_buffer[2] << 8 | m_buffer[3] << 16 | m_buffer[4] << 24);
         break;
     }
-    case static_cast<uint8_t>(ReturnCode::StringDataEnclosed):
+    case ReturnCode::StringDataEnclosed:
     {
-        if (onStringDataReceived == nullptr)
+        if (onStringDataReceived == nullptr || m_componentRetrievingText == nullptr)
         {
             return;
         }
@@ -205,7 +182,7 @@ void Nextion::processBuffer()
         }
 
         payload[dataLength - 1] = '\0';
-        onStringDataReceived(payload);
+        onStringDataReceived(m_componentRetrievingText, payload);
         break;
     }
     default:
@@ -220,12 +197,12 @@ void Nextion::processBuffer()
     }
 }
 
-uint8_t Nextion::payloadSize()
+uint8_t NextionInterface::payloadSize()
 {
     return m_currentIndex - NextionConstants::TERMINATION_BYTES_SIZE + 1;
 }
 
-void Nextion::writeTerminationBytes()
+void NextionInterface::writeTerminationBytes()
 {
     for (auto i = 0; i < NextionConstants::TERMINATION_BYTES_SIZE; i++)
     {
@@ -233,13 +210,13 @@ void Nextion::writeTerminationBytes()
     }
 }
 
-void Nextion::writeCommand(NextionConstants::Command command)
+void NextionInterface::writeCommand(NextionConstants::Command command)
 {
     m_stream->print(getCommand(command));
     m_stream->write(NextionConstants::COMMAND_SEPARATOR);
 }
 
-const char *Nextion::getCommand(NextionConstants::Command command)
+const char *NextionInterface::getCommand(NextionConstants::Command command)
 {
     using namespace NextionConstants;
 
@@ -290,23 +267,51 @@ const char *Nextion::getCommand(NextionConstants::Command command)
     return nullptr;
 }
 
-void Nextion::sendCommand(NextionConstants::Command command)
+void NextionInterface::sendCommand(NextionConstants::Command command)
 {
     m_stream->print(getCommand(command));
     writeTerminationBytes();
 }
 
-void Nextion::sendCommand(NextionConstants::Command command, const NextionComponent &component)
+void NextionInterface::sendCommand(NextionConstants::Command command, const NextionComponent &component)
 {
     sendCommand(command, component.name);
 }
 
-void Nextion::sendParameterList(const NextionComponent &component)
+void NextionInterface::sendParameterList(const NextionComponent &component)
 {
     sendParameterList(component.name);
 }
 
-void Nextion::convert(const char *source, const char *destination, const uint8_t length, NextionConstants::ConversionFormat format)
+void NextionInterface::setText(const char *objectName, const char *value)
+{
+    char result[strlen(objectName) + strlen(NextionConstants::TEXT_ATTRIBUTE) + strlen(value) + 4];
+    sprintf(result, "%s%s=\"%s\"", objectName, NextionConstants::TEXT_ATTRIBUTE, value);
+    sendRaw(result);
+}
+
+void NextionInterface::setInteger(const char *objectName, int value)
+{
+    char result[strlen(objectName) + strlen(NextionConstants::NUMERIC_ATTRIBUTE) + digits(value) + 2];
+    sprintf(result, "%s%s=%d", objectName, NextionConstants::NUMERIC_ATTRIBUTE, value);
+    sendRaw(result);
+}
+
+void NextionInterface::getText(const char *objectName)
+{
+    char tmp[strlen(objectName) + strlen(NextionConstants::TEXT_ATTRIBUTE) + 1];
+    sprintf(tmp, "%s%s", objectName, NextionConstants::TEXT_ATTRIBUTE);
+    get(tmp);
+}
+
+void NextionInterface::getInteger(const char *objectName)
+{
+    char tmp[strlen(objectName) + strlen(NextionConstants::NUMERIC_ATTRIBUTE) + 1];
+    sprintf(tmp, "%s%s", objectName, NextionConstants::NUMERIC_ATTRIBUTE);
+    get(tmp);
+}
+
+void NextionInterface::convert(const char *source, const char *destination, const uint8_t length, NextionConstants::ConversionFormat format)
 {
     writeCommand(NextionConstants::Command::Convert);
     sendParameterList(source, destination, length, static_cast<uint8_t>(format));

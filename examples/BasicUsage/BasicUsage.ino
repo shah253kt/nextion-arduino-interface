@@ -1,27 +1,37 @@
-#include <Nextion.h>
+#include <NextionInterface.h>
 
-Nextion hmi(Serial1);
+NextionInterface hmi(Serial);
 NextionComponent myComponent(3, "b0");
 
 void setup() {
   Serial.begin(115200);
-  Serial1.begin(9600);
+  setupHmi();
+}
 
-  while(!Serial);
+void loop() {
+  hmi.update();  // Check for responses
+}
+
+void setupHmi() {
+  Serial.println();
 
   hmi.onPageNumberUpdated = [](uint8_t pageNumber) {
     Serial.print(F("Page number: "));
     Serial.println(pageNumber);
   };
 
-  hmi.onNumericDataReceived = [](uint32_t value) {
+  hmi.onNumericDataReceived = [](const NextionComponent *component, uint32_t value) {
     Serial.print(F("Numeric data received: "));
     Serial.println(value);
+    Serial.print(F("Component: "));
+    Serial.println(component->name);
   };
 
-  hmi.onStringDataReceived = [](char* data) {
+  hmi.onStringDataReceived = [](const NextionComponent *component, char* data) {
     Serial.print(F("String data received: "));
     Serial.println(data);
+    Serial.print(F("Component: "));
+    Serial.println(component->name);
   };
 
   hmi.onTouchEvent = [](uint8_t pageNumber, uint8_t componentId, NextionConstants::ClickEvent event) {
@@ -51,19 +61,9 @@ void setup() {
 
   hmi.getCurrentPageNumber();
 
-  hmi.setText("t3", "Hello!");
-  hmi.setInteger("sys0", 123);
-
   hmi.setText(myComponent, "Hello!");
   hmi.setInteger(myComponent, 123);
 
-  hmi.getText("t3");
-  hmi.getInteger("sys0");
-
   hmi.getText(myComponent);
   hmi.getInteger(myComponent);
-}
-
-void loop() {
-  hmi.update();  // Check for responses
 }

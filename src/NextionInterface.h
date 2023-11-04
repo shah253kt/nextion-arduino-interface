@@ -8,36 +8,33 @@ struct NextionComponent
     NextionComponent(uint8_t id, const char *name)
     {
         this->id = id;
+        this->name = new char[strlen(name) + 1];
         strcpy(this->name, name);
     }
 
+    ~NextionComponent()
+    {
+        delete name;
+    }
+
     uint8_t id;
-    char name[NextionConstants::MAX_COMPONENT_NAME_LENGTH];
+    char *name;
 };
 
-class Nextion
+class NextionInterface
 {
 public:
-    Nextion(Stream &stream);
-    ~Nextion() = default;
+    NextionInterface(Stream &stream);
+    ~NextionInterface() = default;
 
     void update();
     void reset();
     void sendRaw(const char *raw);
-    void setText(const char *objectName, const char *value);
+
     void setText(const NextionComponent &component, const char *value);
-    void setInteger(const char *objectName, int value);
     void setInteger(const NextionComponent &component, int value);
 
-    template <typename T>
-    void get(T item)
-    {
-        sendCommand(NextionConstants::Command::Get, item);
-    }
-
-    void getText(const char *objectName);
     void getText(const NextionComponent &component);
-    void getInteger(const char *objectName);
     void getInteger(const NextionComponent &component);
 
     template <typename T>
@@ -100,14 +97,17 @@ public:
 
     void (*onTouchEvent)(uint8_t pageNumber, uint8_t componentId, NextionConstants::ClickEvent event);
     void (*onPageNumberUpdated)(uint8_t pageNumber);
-    void (*onNumericDataReceived)(uint32_t data);
-    void (*onStringDataReceived)(char *data);
+    void (*onNumericDataReceived)(const NextionComponent *component, uint32_t data);
+    void (*onStringDataReceived)(const NextionComponent *component, char *data);
     void (*onUnhandledReturnCodeReceived)(uint8_t returnCode);
 
 private:
     Stream *m_stream;
     uint8_t m_buffer[NextionConstants::MAX_BUFFER_SIZE];
     uint8_t m_currentIndex;
+
+    NextionComponent *m_componentRetrievingText;
+    NextionComponent *m_componentRetrievingInteger;
 
     [[nodiscard]] bool isBufferTerminated();
     void processBuffer();
@@ -148,6 +148,18 @@ private:
             sendParameterList(rest...);
         }
     }
+
+    void setText(const char *objectName, const char *value);
+    void setInteger(const char *objectName, int value);
+
+    template <typename T>
+    void get(T item)
+    {
+        sendCommand(NextionConstants::Command::Get, item);
+    }
+
+    void getText(const char *objectName);
+    void getInteger(const char *objectName);
 
     void convert(const char *source, const char *destination, uint8_t length, NextionConstants::ConversionFormat format);
 };

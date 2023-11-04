@@ -1,8 +1,45 @@
 # Datatypes (KEYWORD1)
-GrblInterface   KEYWORD1
+NextionInterface    KEYWORD1
 
 # Methods and Functions (KEYWORD2)
+update  KEYWORD2
+reset   KEYWORD2
+sendRaw KEYWORD2
+setText KEYWORD2
+setInteger  KEYWORD2
+getText KEYWORD2
+getInteger  KEYWORD2
+changePage  KEYWORD2
+refresh KEYWORD2
+click   KEYWORD2
+getCurrentPageNumber    KEYWORD2
+convertTextToNumeric    KEYWORD2
+convertTextToNumeric    KEYWORD2
+convertNumericToText    KEYWORD2
+convertNumericToText    KEYWORD2
+setVisibility   KEYWORD2
+setTouchEvent   KEYWORD2
+enableTouchEvent    KEYWORD2
+disableTouchEvent   KEYWORD2
+sleep   KEYWORD2
+
+onTouchEvent    KEYWORD2
+onPageNumberUpdated KEYWORD2
+onNumericDataReceived   KEYWORD2
+onStringDataReceived    KEYWORD2
+onUnhandledReturnCodeReceived   KEYWORD2
 
 # Structures (KEYWORD3)
 
 # Constants (LITERAL1)
+Released    LITERAL1
+Pressed LITERAL1
+
+BLACK   LITERAL1
+BLUE    LITERAL1
+BROWN   LITERAL1
+GREEN   LITERAL1
+YELLOW  LITERAL1
+RED LITERAL1
+GRAY    LITERAL1
+WHITE   LITERAL1
