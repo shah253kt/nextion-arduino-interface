@@ -7,6 +7,17 @@
 
 using ComponentId = uint8_t;
 
+struct DateTime
+{
+    uint8_t day{};
+    uint8_t month{};
+    uint16_t year{};
+    uint8_t hour{};
+    uint8_t minute{};
+    uint8_t second{};
+    uint8_t dayOfTheWeek{};
+};
+
 class NextionComponent
 {
 public:
@@ -51,12 +62,12 @@ class NextionInterface
 {
 public:
     explicit NextionInterface(Stream &stream);
-    ~NextionInterface() = default;
+    ~NextionInterface();
 
     void registerComponent(NextionComponent &component);
     [[nodiscard]] NextionComponent *getComponent(uint8_t pageId, ComponentId componentId);
 
-    void update();
+    bool update();
     void reset();
     void sendRaw(const char *raw);
 
@@ -130,8 +141,8 @@ public:
     void getDate();
     void setTime(uint8_t hour, uint8_t minute, uint8_t second);
     void getTime();
-    void getDayOfTheWeek();
     char *getDayOfTheWeek(NextionConstants::DayOfTheWeek day);
+    DateTime getDateTime();
 
     void (*onTouchEvent)(uint8_t pageId, ComponentId componentId, NextionConstants::ClickEvent event);
     void (*onPageIdUpdated)(uint8_t pageId);
@@ -148,8 +159,18 @@ private:
     NextionComponent *m_componentRetrievingText;
     NextionComponent *m_componentRetrievingInteger;
 
+    NextionComponent *m_componentYear;
+    NextionComponent *m_componentMonth;
+    NextionComponent *m_componentDay;
+    NextionComponent *m_componentHour;
+    NextionComponent *m_componentMinute;
+    NextionComponent *m_componentSecond;
+    NextionComponent *m_componentDayOfTheWeek;
+
+    [[nodiscard]] bool waitForResponse();
+
     [[nodiscard]] bool isBufferTerminated();
-    void processBuffer();
+    [[nodiscard]] bool processBuffer();
     [[nodiscard]] uint8_t payloadSize();
 
     void writeTerminationBytes();
@@ -194,6 +215,7 @@ private:
     void get(T item)
     {
         sendCommand(NextionConstants::Command::Get, item);
+        const auto isTimeout = !waitForResponse();
     }
 
     template <typename T>

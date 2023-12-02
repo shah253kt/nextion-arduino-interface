@@ -1,11 +1,66 @@
 #include "NextionInterface.h"
 
 #define digits(x) int(floor(log(x) + 1))
+#define TIMEOUT 100
+
+DateTime dateTime;
 
 NextionInterface::NextionInterface(Stream &stream)
     : m_stream(&stream),
-      m_currentIndex(0)
+      m_currentIndex(0),
+      m_componentYear(new NextionComponent(0, 0, "rtc0")),
+      m_componentMonth(new NextionComponent(0, 0, "rtc1")),
+      m_componentDay(new NextionComponent(0, 0, "rtc2")),
+      m_componentHour(new NextionComponent(0, 0, "rtc3")),
+      m_componentMinute(new NextionComponent(0, 0, "rtc4")),
+      m_componentSecond(new NextionComponent(0, 0, "rtc5")),
+      m_componentDayOfTheWeek(new NextionComponent(0, 0, "rtc6"))
 {
+    m_componentYear->onNumericDataReceived = [](uint32_t value)
+    {
+        dateTime.year = static_cast<uint16_t>(value);
+    };
+
+    m_componentMonth->onNumericDataReceived = [](uint32_t value)
+    {
+        dateTime.month = static_cast<uint8_t>(value);
+    };
+
+    m_componentDay->onNumericDataReceived = [](uint32_t value)
+    {
+        dateTime.day = static_cast<uint8_t>(value);
+    };
+
+    m_componentHour->onNumericDataReceived = [](uint32_t value)
+    {
+        dateTime.hour = static_cast<uint8_t>(value);
+    };
+
+    m_componentMinute->onNumericDataReceived = [](uint32_t value)
+    {
+        dateTime.minute = static_cast<uint8_t>(value);
+    };
+
+    m_componentSecond->onNumericDataReceived = [](uint32_t value)
+    {
+        dateTime.second = static_cast<uint8_t>(value);
+    };
+
+    m_componentDayOfTheWeek->onNumericDataReceived = [](uint32_t value)
+    {
+        dateTime.dayOfTheWeek = static_cast<uint8_t>(value);
+    };
+}
+
+NextionInterface::~NextionInterface()
+{
+    delete m_componentYear;
+    delete m_componentMonth;
+    delete m_componentDay;
+    delete m_componentHour;
+    delete m_componentMinute;
+    delete m_componentSecond;
+    delete m_componentDayOfTheWeek;
 }
 
 void NextionInterface::registerComponent(NextionComponent &component)
@@ -27,14 +82,16 @@ NextionComponent *NextionInterface::getComponent(uint8_t pageId, ComponentId com
     return nullptr;
 }
 
-void NextionInterface::update()
+bool NextionInterface::update()
 {
     if (!m_stream->available())
     {
         return;
     }
 
-    while (m_stream->available())
+    const auto shouldUnblockAt = millis() + TIMEOUT;
+
+    while (m_stream->available() && millis() < shouldUnblockAt)
     {
         if (m_currentIndex >= NextionConstants::MAX_BUFFER_SIZE)
         {
@@ -50,9 +107,16 @@ void NextionInterface::update()
             continue;
         }
 
-        processBuffer();
+        const auto processResult = processBuffer();
         m_currentIndex = 0;
+
+        if (processResult)
+        {
+            return true;
+        }
     }
+
+    return false;
 }
 
 void NextionInterface::reset()
@@ -135,10 +199,14 @@ void NextionInterface::setDate(uint8_t day, uint8_t month, uint16_t year)
 
 void NextionInterface::getDate()
 {
+    m_componentRetrievingInteger = m_componentDay;
     get(NextionConstants::Command::RtcDay);
+    m_componentRetrievingInteger = m_componentMonth;
     get(NextionConstants::Command::RtcMonth);
+    m_componentRetrievingInteger = m_componentYear;
     get(NextionConstants::Command::RtcYear);
-    getDayOfTheWeek();
+    m_componentRetrievingInteger = m_componentDayOfTheWeek;
+    get(NextionConstants::Command::RtcDayOfTheWeek);
 }
 
 void NextionInterface::setTime(uint8_t hour, uint8_t minute, uint8_t second)
@@ -150,14 +218,12 @@ void NextionInterface::setTime(uint8_t hour, uint8_t minute, uint8_t second)
 
 void NextionInterface::getTime()
 {
+    m_componentRetrievingInteger = m_componentHour;
     get(NextionConstants::Command::RtcHour);
+    m_componentRetrievingInteger = m_componentMinute;
     get(NextionConstants::Command::RtcMinute);
+    m_componentRetrievingInteger = m_componentSecond;
     get(NextionConstants::Command::RtcSecond);
-}
-
-void NextionInterface::getDayOfTheWeek()
-{
-    get(NextionConstants::Command::RtcDayOfTheWeek);
 }
 
 char *NextionInterface::getDayOfTheWeek(NextionConstants::DayOfTheWeek day)
@@ -195,7 +261,29 @@ char *NextionInterface::getDayOfTheWeek(NextionConstants::DayOfTheWeek day)
     }
 }
 
+DateTime NextionInterface::getDateTime()
+{
+    getDate();
+    getTime();
+    return dateTime;
+}
+
 // Private methods
+
+bool NextionInterface::waitForResponse()
+{
+    const auto unblockAt = millis() + TIMEOUT;
+
+    while (millis() < unblockAt)
+    {
+        if (update())
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 bool NextionInterface::isBufferTerminated()
 {
@@ -215,7 +303,7 @@ bool NextionInterface::isBufferTerminated()
     return true;
 }
 
-void NextionInterface::processBuffer()
+bool NextionInterface::processBuffer()
 {
     using namespace NextionConstants;
     const auto returnCode = static_cast<ReturnCode>(m_buffer[0]);
@@ -226,7 +314,7 @@ void NextionInterface::processBuffer()
     {
         if (payloadSize() != ExpectedPayloadSize::TOUCH_EVENT)
         {
-            return;
+            return false;
         }
 
         const auto component = getComponent(m_buffer[1], m_buffer[2]);
@@ -234,34 +322,32 @@ void NextionInterface::processBuffer()
         if (component != nullptr && component->onTouchEvent != nullptr)
         {
             component->onTouchEvent(static_cast<ClickEvent>(m_buffer[3]));
-            return;
+            return false;
         }
 
         if (onTouchEvent == nullptr)
         {
-            return;
+            return false;
         }
 
         onTouchEvent(m_buffer[1], m_buffer[2], static_cast<ClickEvent>(m_buffer[3]));
-        break;
+        return true;
     }
     case ReturnCode::CurrentPageId:
     {
         if (onPageIdUpdated == nullptr || payloadSize() != ExpectedPayloadSize::CURRENT_PAGE_NUMBER)
         {
-            return;
+            return false;
         }
 
         onPageIdUpdated(m_buffer[1]);
-        break;
+        return true;
     }
     case ReturnCode::NumericDataEnclosed:
     {
-        if (onNumericDataReceived == nullptr ||
-            m_componentRetrievingInteger == nullptr ||
-            payloadSize() != ExpectedPayloadSize::NUMERIC_DATA_ENCLOSED)
+        if (payloadSize() != ExpectedPayloadSize::NUMERIC_DATA_ENCLOSED)
         {
-            return;
+            return false;
         }
 
         uint32_t numericValue = m_buffer[1] | m_buffer[2] << 8 | m_buffer[3] << 16 | m_buffer[4] << 24;
@@ -270,18 +356,19 @@ void NextionInterface::processBuffer()
         {
             m_componentRetrievingInteger->onNumericDataReceived(numericValue);
         }
-        else
+
+        if (onNumericDataReceived != nullptr)
         {
             onNumericDataReceived(m_componentRetrievingInteger, numericValue);
         }
 
-        break;
+        return true;
     }
     case ReturnCode::StringDataEnclosed:
     {
         if (onStringDataReceived == nullptr || m_componentRetrievingText == nullptr)
         {
-            return;
+            return false;
         }
 
         const auto dataLength = payloadSize();
@@ -303,7 +390,7 @@ void NextionInterface::processBuffer()
             onStringDataReceived(m_componentRetrievingText, payload);
         }
 
-        break;
+        return true;
     }
     default:
     {
@@ -312,9 +399,11 @@ void NextionInterface::processBuffer()
             onUnhandledReturnCodeReceived(m_buffer[0]);
         }
 
-        break;
+        return false;
     }
     }
+
+    return false;
 }
 
 uint8_t NextionInterface::payloadSize()
@@ -431,7 +520,7 @@ template <>
 void NextionInterface::sendCommand<NextionConstants::Command>(const NextionConstants::Command &command, const NextionConstants::Command &payload)
 {
     writeCommand(command);
-    writeCommand(payload);
+    m_stream->print(getCommand(payload));
     writeTerminationBytes();
 }
 
