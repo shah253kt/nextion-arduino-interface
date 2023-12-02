@@ -4,7 +4,8 @@ namespace NextionConstants
 {
     constexpr uint8_t TERMINATION_BYTES[] = {0xFF, 0xFF, 0xFF};
     constexpr auto TERMINATION_BYTES_SIZE = sizeof(TERMINATION_BYTES) / sizeof(TERMINATION_BYTES[0]);
-    constexpr auto COMMAND_SEPARATOR = 0x20;
+    constexpr auto COMMAND_SEPARATOR = ' ';
+    constexpr auto ASSIGNMENT_CHARACTER = '=';
     constexpr auto PARAMETER_SEPARATOR = ',';
     constexpr auto NUMERIC_ATTRIBUTE = ".val";
     constexpr auto TEXT_ATTRIBUTE = ".txt";
@@ -22,7 +23,14 @@ namespace NextionConstants
         Convert,
         SetVisibility,
         EnableTouchEvent,
-        Sleep
+        Sleep,
+        RtcYear,
+        RtcMonth,
+        RtcDay,
+        RtcHour,
+        RtcMinute,
+        RtcSecond,
+        RtcDayOfTheWeek
     };
 
     enum class ClickEvent : uint8_t
@@ -88,9 +96,21 @@ namespace NextionConstants
         TransparentDataReady = 0xFE
     };
 
-    namespace ExpectedPayloadSize {
+    namespace ExpectedPayloadSize
+    {
         constexpr auto TOUCH_EVENT = 4;
         constexpr auto CURRENT_PAGE_NUMBER = 2;
         constexpr auto NUMERIC_DATA_ENCLOSED = 5;
     }
+
+    enum class DayOfTheWeek
+    {
+        Sunday,
+        Monday,
+        Tuesday,
+        Wednesday,
+        Thursday,
+        Friday,
+        Saturday
+    };
 }

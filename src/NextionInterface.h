@@ -19,7 +19,7 @@ public:
 
     ~NextionComponent()
     {
-        delete m_name;
+        delete[] m_name;
     }
 
     [[nodiscard]] uint8_t pageId() const
@@ -67,19 +67,21 @@ public:
     void getInteger(const NextionComponent &component);
 
     template <typename T>
-    void changePage(T page)
+    void changePage(const T &page)
     {
         sendCommand(NextionConstants::Command::ChangePage, page);
     }
 
+    void changePage(const NextionComponent &) = delete;
+
     template <typename T>
-    void refresh(T item)
+    void refresh(const T &item)
     {
         sendCommand(NextionConstants::Command::Refresh, item);
     }
 
     template <typename T>
-    void click(T item, NextionConstants::ClickEvent event)
+    void click(const T &item, NextionConstants::ClickEvent event)
     {
         writeCommand(NextionConstants::Command::Click);
         sendParameterList(item, static_cast<uint8_t>(event));
@@ -124,6 +126,13 @@ public:
 
     void sleep(bool sleepMode);
 
+    void setDate(uint8_t day, uint8_t month, uint16_t year);
+    void getDate();
+    void setTime(uint8_t hour, uint8_t minute, uint8_t second);
+    void getTime();
+    void getDayOfTheWeek();
+    char *getDayOfTheWeek(NextionConstants::DayOfTheWeek day);
+
     void (*onTouchEvent)(uint8_t pageId, ComponentId componentId, NextionConstants::ClickEvent event);
     void (*onPageIdUpdated)(uint8_t pageId);
     void (*onNumericDataReceived)(const NextionComponent *component, uint32_t data);
@@ -144,23 +153,22 @@ private:
     [[nodiscard]] uint8_t payloadSize();
 
     void writeTerminationBytes();
-    void writeCommand(NextionConstants::Command command);
-    [[nodiscard]] const char *getCommand(NextionConstants::Command command);
+    void writeCommand(const NextionConstants::Command &command);
+    [[nodiscard]] const char *getCommand(const NextionConstants::Command &command);
 
-    void sendCommand(NextionConstants::Command command);
+    void sendCommand(const NextionConstants::Command &command);
+    void sendCommand(const NextionConstants::Command &command, const NextionComponent &component);
 
     template <typename T>
-    void sendCommand(NextionConstants::Command command, T payload)
+    void sendCommand(const NextionConstants::Command &command, const T &payload)
     {
         writeCommand(command);
         m_stream->print(payload);
         writeTerminationBytes();
     }
 
-    void sendCommand(NextionConstants::Command command, const NextionComponent &component);
-
     template <typename T>
-    void sendParameterList(T param)
+    void sendParameterList(const T &param)
     {
         m_stream->print(param);
     }
@@ -168,7 +176,7 @@ private:
     void sendParameterList(const NextionComponent &component);
 
     template <typename TFirst, typename... TRest>
-    void sendParameterList(TFirst first, TRest... rest)
+    void sendParameterList(const TFirst &first, TRest... rest)
     {
         sendParameterList(first);
 
@@ -186,6 +194,15 @@ private:
     void get(T item)
     {
         sendCommand(NextionConstants::Command::Get, item);
+    }
+
+    template <typename T>
+    void set(NextionConstants::Command command, T item)
+    {
+        m_stream->print(getCommand(command));
+        m_stream->write(NextionConstants::ASSIGNMENT_CHARACTER);
+        m_stream->print(item);
+        writeTerminationBytes();
     }
 
     void getText(const char *objectName);

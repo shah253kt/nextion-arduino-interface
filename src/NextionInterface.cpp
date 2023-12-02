@@ -126,6 +126,75 @@ void NextionInterface::sleep(bool isSleep)
     sendCommand(NextionConstants::Command::Sleep, isSleep);
 }
 
+void NextionInterface::setDate(uint8_t day, uint8_t month, uint16_t year)
+{
+    set(NextionConstants::Command::RtcDay, day);
+    set(NextionConstants::Command::RtcMonth, month);
+    set(NextionConstants::Command::RtcYear, year);
+}
+
+void NextionInterface::getDate()
+{
+    get(NextionConstants::Command::RtcDay);
+    get(NextionConstants::Command::RtcMonth);
+    get(NextionConstants::Command::RtcYear);
+    getDayOfTheWeek();
+}
+
+void NextionInterface::setTime(uint8_t hour, uint8_t minute, uint8_t second)
+{
+    set(NextionConstants::Command::RtcHour, hour);
+    set(NextionConstants::Command::RtcMinute, minute);
+    set(NextionConstants::Command::RtcSecond, second);
+}
+
+void NextionInterface::getTime()
+{
+    get(NextionConstants::Command::RtcHour);
+    get(NextionConstants::Command::RtcMinute);
+    get(NextionConstants::Command::RtcSecond);
+}
+
+void NextionInterface::getDayOfTheWeek()
+{
+    get(NextionConstants::Command::RtcDayOfTheWeek);
+}
+
+char *NextionInterface::getDayOfTheWeek(NextionConstants::DayOfTheWeek day)
+{
+    switch (day)
+    {
+    case NextionConstants::DayOfTheWeek::Sunday:
+    {
+        return "Sunday";
+    }
+    case NextionConstants::DayOfTheWeek::Monday:
+    {
+        return "Monday";
+    }
+    case NextionConstants::DayOfTheWeek::Tuesday:
+    {
+        return "Tuesday";
+    }
+    case NextionConstants::DayOfTheWeek::Wednesday:
+    {
+        return "Wednesday";
+    }
+    case NextionConstants::DayOfTheWeek::Thursday:
+    {
+        return "Thursday";
+    }
+    case NextionConstants::DayOfTheWeek::Friday:
+    {
+        return "Friday";
+    }
+    case NextionConstants::DayOfTheWeek::Saturday:
+    {
+        return "Saturday";
+    }
+    }
+}
+
 // Private methods
 
 bool NextionInterface::isBufferTerminated()
@@ -161,7 +230,7 @@ void NextionInterface::processBuffer()
         }
 
         const auto component = getComponent(m_buffer[1], m_buffer[2]);
-        
+
         if (component != nullptr && component->onTouchEvent != nullptr)
         {
             component->onTouchEvent(static_cast<ClickEvent>(m_buffer[3]));
@@ -261,13 +330,13 @@ void NextionInterface::writeTerminationBytes()
     }
 }
 
-void NextionInterface::writeCommand(NextionConstants::Command command)
+void NextionInterface::writeCommand(const NextionConstants::Command &command)
 {
     m_stream->print(getCommand(command));
     m_stream->write(NextionConstants::COMMAND_SEPARATOR);
 }
 
-const char *NextionInterface::getCommand(NextionConstants::Command command)
+const char *NextionInterface::getCommand(const NextionConstants::Command &command)
 {
     using namespace NextionConstants;
 
@@ -313,20 +382,57 @@ const char *NextionInterface::getCommand(NextionConstants::Command command)
     {
         return "sleep";
     }
+    case Command::RtcYear:
+    {
+        return "rtc0";
+    }
+    case Command::RtcMonth:
+    {
+        return "rtc1";
+    }
+    case Command::RtcDay:
+    {
+        return "rtc2";
+    }
+    case Command::RtcHour:
+    {
+        return "rtc3";
+    }
+    case Command::RtcMinute:
+    {
+        return "rtc4";
+    }
+    case Command::RtcSecond:
+    {
+        return "rtc5";
+    }
+    case Command::RtcDayOfTheWeek:
+    {
+        return "rtc6";
+    }
     }
 
+    // static_assert(false, "Failed to retrieve command. Unhandled command.");
     return nullptr;
 }
 
-void NextionInterface::sendCommand(NextionConstants::Command command)
+void NextionInterface::sendCommand(const NextionConstants::Command &command)
 {
     m_stream->print(getCommand(command));
     writeTerminationBytes();
 }
 
-void NextionInterface::sendCommand(NextionConstants::Command command, const NextionComponent &component)
+void NextionInterface::sendCommand(const NextionConstants::Command &command, const NextionComponent &component)
 {
     sendCommand(command, component.name());
+}
+
+template <>
+void NextionInterface::sendCommand<NextionConstants::Command>(const NextionConstants::Command &command, const NextionConstants::Command &payload)
+{
+    writeCommand(command);
+    writeCommand(payload);
+    writeTerminationBytes();
 }
 
 void NextionInterface::sendParameterList(const NextionComponent &component)
