@@ -86,7 +86,7 @@ bool NextionInterface::update()
 {
     if (!m_stream->available())
     {
-        return;
+        return false;
     }
 
     const auto shouldUnblockAt = millis() + TIMEOUT;
