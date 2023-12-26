@@ -9,6 +9,10 @@ namespace NextionConstants
     constexpr auto PARAMETER_SEPARATOR = ',';
     constexpr auto NUMERIC_ATTRIBUTE = ".val";
     constexpr auto TEXT_ATTRIBUTE = ".txt";
+    constexpr auto BACKGROUND_ATTRIBUTE = ".bco";
+    constexpr auto BACKGROUND_2_ATTRIBUTE = ".bco2";
+    constexpr auto FOREGROUND_ATTRIBUTE = ".pco";
+    constexpr auto FOREGROUND_2_ATTRIBUTE = ".pco2";
     constexpr auto MAX_BUFFER_SIZE = 32;
     constexpr auto MAX_COMPONENT_NAME_LENGTH = 10;
 
@@ -55,7 +59,11 @@ namespace NextionConstants
         YELLOW = 65504,
         RED = 63488,
         GRAY = 33840,
-        WHITE = 65535
+        LIGHT_GRAY = 19017,
+        DARK_GRAY = 14823,
+        WHITE = 65535,
+        ORANGE = 64577,
+        LIGHT_ORANGE = 64804
     };
 
     enum class ReturnCode : uint8_t

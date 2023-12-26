@@ -1,6 +1,6 @@
 #include "NextionInterface.h"
 
-#define digits(x) int(floor(log(x) + 1))
+#define digits(n) ((n) == 0 ? 1 : ((n) < 0 ? 2 : 1) + static_cast<int>(std::log10(std::abs(n))))
 #define TIMEOUT 100
 
 DateTime dateTime;
@@ -261,6 +261,66 @@ char *NextionInterface::getDayOfTheWeek(NextionConstants::DayOfTheWeek day)
     }
 }
 
+void NextionInterface::setBackgroundColor(const NextionComponent &component, const NextionConstants::Color color)
+{
+    setBackgroundColor(component.name(), static_cast<uint16_t>(color));
+}
+
+void NextionInterface::setBackgroundColor2(const NextionComponent &component, const NextionConstants::Color color)
+{
+    setBackgroundColor2(component.name(), static_cast<uint16_t>(color));
+}
+
+void NextionInterface::setForegroundColor(const NextionComponent &component, const NextionConstants::Color color)
+{
+    setForegroundColor(component.name(), static_cast<uint16_t>(color));
+}
+
+void NextionInterface::setForegroundColor2(const NextionComponent &component, const NextionConstants::Color color)
+{
+    setForegroundColor2(component.name(), static_cast<uint16_t>(color));
+}
+
+void NextionInterface::setBackgroundColor(const NextionComponent &component, const uint16_t color)
+{
+    setBackgroundColor(component.name(), color);
+}
+
+void NextionInterface::setBackgroundColor2(const NextionComponent &component, const uint16_t color)
+{
+    setBackgroundColor2(component.name(), color);
+}
+
+void NextionInterface::setForegroundColor(const NextionComponent &component, const uint16_t color)
+{
+    setForegroundColor(component.name(), color);
+}
+
+void NextionInterface::setForegroundColor2(const NextionComponent &component, const uint16_t color)
+{
+    setForegroundColor2(component.name(), color);
+}
+
+void NextionInterface::setBackgroundColor(const char *objectName, const uint16_t color)
+{
+    setColor(objectName, NextionConstants::BACKGROUND_ATTRIBUTE, color);
+}
+
+void NextionInterface::setBackgroundColor2(const char *objectName, const uint16_t color)
+{
+    setColor(objectName, NextionConstants::BACKGROUND_2_ATTRIBUTE, color);
+}
+
+void NextionInterface::setForegroundColor(const char *objectName, const uint16_t color)
+{
+    setColor(objectName, NextionConstants::FOREGROUND_ATTRIBUTE, color);
+}
+
+void NextionInterface::setForegroundColor2(const char *objectName, const uint16_t color)
+{
+    setColor(objectName, NextionConstants::FOREGROUND_2_ATTRIBUTE, color);
+}
+
 DateTime NextionInterface::getDateTime()
 {
     getDate();
@@ -423,6 +483,8 @@ void NextionInterface::writeCommand(const NextionConstants::Command &command)
 {
     m_stream->print(getCommand(command));
     m_stream->write(NextionConstants::COMMAND_SEPARATOR);
+    Serial.print(getCommand(command));
+    Serial.print(NextionConstants::COMMAND_SEPARATOR);
 }
 
 const char *NextionInterface::getCommand(const NextionConstants::Command &command)
@@ -562,4 +624,11 @@ void NextionInterface::convert(const char *source, const char *destination, cons
     writeCommand(NextionConstants::Command::Convert);
     sendParameterList(source, destination, length, static_cast<uint8_t>(format));
     writeTerminationBytes();
+}
+
+void NextionInterface::setColor(const char *objectName, const char *attribute, const uint16_t color)
+{
+    char result[strlen(objectName) + strlen(attribute) + digits(color) + 4];
+    sprintf(result, "%s%s=%d", objectName, attribute, color);
+    sendRaw(result);
 }

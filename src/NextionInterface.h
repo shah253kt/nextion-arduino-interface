@@ -110,6 +110,7 @@ public:
     template <typename T>
     void setVisibility(T item, bool visible)
     {
+        Serial.println(F("setVisibility()"));
         writeCommand(NextionConstants::Command::SetVisibility);
         sendParameterList(item, visible ? 1 : 0);
         writeTerminationBytes();
@@ -143,6 +144,21 @@ public:
     void getTime();
     char *getDayOfTheWeek(NextionConstants::DayOfTheWeek day);
     DateTime getDateTime();
+
+    void setBackgroundColor(const NextionComponent &component, NextionConstants::Color color);
+    void setBackgroundColor2(const NextionComponent &component, NextionConstants::Color color);
+    void setForegroundColor(const NextionComponent &component, NextionConstants::Color color);
+    void setForegroundColor2(const NextionComponent &component, NextionConstants::Color color);
+
+    void setBackgroundColor(const NextionComponent &component, uint16_t color);
+    void setBackgroundColor2(const NextionComponent &component, uint16_t color);
+    void setForegroundColor(const NextionComponent &component, uint16_t color);
+    void setForegroundColor2(const NextionComponent &component, uint16_t color);
+
+    void setBackgroundColor(const char *objectName, uint16_t color);
+    void setBackgroundColor2(const char *objectName, uint16_t color);
+    void setForegroundColor(const char *objectName, uint16_t color);
+    void setForegroundColor2(const char *objectName, uint16_t color);
 
     void (*onTouchEvent)(uint8_t pageId, ComponentId componentId, NextionConstants::ClickEvent event);
     void (*onPageIdUpdated)(uint8_t pageId);
@@ -192,6 +208,7 @@ private:
     void sendParameterList(const T &param)
     {
         m_stream->print(param);
+        Serial.print(param);
     }
 
     void sendParameterList(const NextionComponent &component);
@@ -204,6 +221,7 @@ private:
         if (sizeof...(rest) > 0)
         {
             m_stream->print(NextionConstants::PARAMETER_SEPARATOR);
+            Serial.print(NextionConstants::PARAMETER_SEPARATOR);
             sendParameterList(rest...);
         }
     }
@@ -215,7 +233,7 @@ private:
     void get(T item)
     {
         sendCommand(NextionConstants::Command::Get, item);
-        const auto isTimeout = !waitForResponse();
+        // const auto isTimeout = !waitForResponse();
     }
 
     template <typename T>
@@ -231,4 +249,6 @@ private:
     void getInteger(const char *objectName);
 
     void convert(const char *source, const char *destination, uint8_t length, NextionConstants::ConversionFormat format);
+
+    void setColor(const char *objectName, const char *attribute, const uint16_t color);
 };
