@@ -74,8 +74,8 @@ public:
     void setText(const NextionComponent &component, const char *value);
     void setInteger(const NextionComponent &component, int value);
 
-    void getText(const NextionComponent &component);
-    void getInteger(const NextionComponent &component);
+    void getText(NextionComponent &component);
+    void getInteger(NextionComponent &component);
 
     template <typename T>
     void changePage(const T &page)
@@ -107,14 +107,8 @@ public:
     void convertNumericToText(const char *sourceObjectName, const char *destinationObjectName, uint8_t length, NextionConstants::ConversionFormat format = NextionConstants::ConversionFormat::Integer);
     void convertNumericToText(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format = NextionConstants::ConversionFormat::Integer);
 
-    template <typename T>
-    void setVisibility(T item, bool visible)
-    {
-        Serial.println(F("setVisibility()"));
-        writeCommand(NextionConstants::Command::SetVisibility);
-        sendParameterList(item, visible ? 1 : 0);
-        writeTerminationBytes();
-    }
+    void setVisibility(const char *componentName, bool visible);
+    void setVisibility(const NextionComponent &component, bool visible);
 
     template <typename T>
     void setTouchEvent(T item, bool enable)
@@ -200,6 +194,7 @@ private:
     void sendCommand(const NextionConstants::Command &command, const T &payload)
     {
         writeCommand(command);
+        Serial.println(payload);
         m_stream->print(payload);
         writeTerminationBytes();
     }
@@ -208,7 +203,6 @@ private:
     void sendParameterList(const T &param)
     {
         m_stream->print(param);
-        Serial.print(param);
     }
 
     void sendParameterList(const NextionComponent &component);
@@ -221,7 +215,6 @@ private:
         if (sizeof...(rest) > 0)
         {
             m_stream->print(NextionConstants::PARAMETER_SEPARATOR);
-            Serial.print(NextionConstants::PARAMETER_SEPARATOR);
             sendParameterList(rest...);
         }
     }

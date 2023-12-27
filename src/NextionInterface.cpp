@@ -140,15 +140,15 @@ void NextionInterface::setInteger(const NextionComponent &component, int value)
     setInteger(component.name(), value);
 }
 
-void NextionInterface::getText(const NextionComponent &component)
+void NextionInterface::getText(NextionComponent &component)
 {
-    m_componentRetrievingText = const_cast<NextionComponent *>(&component);
+    m_componentRetrievingText = &component;
     getText(component.name());
 }
 
-void NextionInterface::getInteger(const NextionComponent &component)
+void NextionInterface::getInteger(NextionComponent &component)
 {
-    m_componentRetrievingInteger = const_cast<NextionComponent *>(&component);
+    m_componentRetrievingInteger = &component;
     getInteger(component.name());
 }
 
@@ -183,6 +183,18 @@ void NextionInterface::convertNumericToText(const char *sourceObjectName, const 
 void NextionInterface::convertNumericToText(const NextionComponent &source, const NextionComponent &destination, uint8_t length, NextionConstants::ConversionFormat format)
 {
     convertNumericToText(source.name(), destination.name(), length, format);
+}
+
+void NextionInterface::setVisibility(const char *componentName, bool visible)
+{
+    writeCommand(NextionConstants::Command::SetVisibility);
+    sendParameterList(componentName, visible ? 1 : 0);
+    writeTerminationBytes();
+}
+
+void NextionInterface::setVisibility(const NextionComponent &component, bool visible)
+{
+    setVisibility(component.name(), visible);
 }
 
 void NextionInterface::sleep(bool isSleep)
@@ -482,7 +494,7 @@ void NextionInterface::writeTerminationBytes()
 void NextionInterface::writeCommand(const NextionConstants::Command &command)
 {
     m_stream->print(getCommand(command));
-    m_stream->write(NextionConstants::COMMAND_SEPARATOR);
+    m_stream->print(NextionConstants::COMMAND_SEPARATOR);
     Serial.print(getCommand(command));
     Serial.print(NextionConstants::COMMAND_SEPARATOR);
 }
