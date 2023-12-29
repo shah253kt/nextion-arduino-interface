@@ -156,7 +156,7 @@ public:
 
     void (*onTouchEvent)(uint8_t pageId, ComponentId componentId, NextionConstants::ClickEvent event);
     void (*onPageIdUpdated)(uint8_t pageId);
-    void (*onNumericDataReceived)(const NextionComponent *component, uint32_t data);
+    void (*onNumericDataReceived)(const NextionComponent *component, int32_t data);
     void (*onStringDataReceived)(const NextionComponent *component, char *data);
     void (*onUnhandledReturnCodeReceived)(uint8_t returnCode);
 
@@ -194,7 +194,6 @@ private:
     void sendCommand(const NextionConstants::Command &command, const T &payload)
     {
         writeCommand(command);
-        Serial.println(payload);
         m_stream->print(payload);
         writeTerminationBytes();
     }

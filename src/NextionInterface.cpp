@@ -495,8 +495,6 @@ void NextionInterface::writeCommand(const NextionConstants::Command &command)
 {
     m_stream->print(getCommand(command));
     m_stream->print(NextionConstants::COMMAND_SEPARATOR);
-    Serial.print(getCommand(command));
-    Serial.print(NextionConstants::COMMAND_SEPARATOR);
 }
 
 const char *NextionInterface::getCommand(const NextionConstants::Command &command)
