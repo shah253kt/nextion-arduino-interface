@@ -451,7 +451,6 @@ bool NextionInterface::processBuffer()
             numericValue *= -1;
         }
 
-        // Serial.println(numericValue);
         m_currentIndex = 0;
 
         if (m_componentRetrievingInteger->onNumericDataReceived != nullptr)
