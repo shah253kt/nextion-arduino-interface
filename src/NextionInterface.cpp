@@ -16,37 +16,37 @@ NextionInterface::NextionInterface(Stream &stream)
       m_componentSecond(new NextionComponent(0, 0, "rtc5")),
       m_componentDayOfTheWeek(new NextionComponent(0, 0, "rtc6"))
 {
-    m_componentYear->onNumericDataReceived = [](uint32_t value)
+    m_componentYear->onNumericDataReceived = [](int32_t value)
     {
         dateTime.year = static_cast<uint16_t>(value);
     };
 
-    m_componentMonth->onNumericDataReceived = [](uint32_t value)
+    m_componentMonth->onNumericDataReceived = [](int32_t value)
     {
         dateTime.month = static_cast<uint8_t>(value);
     };
 
-    m_componentDay->onNumericDataReceived = [](uint32_t value)
+    m_componentDay->onNumericDataReceived = [](int32_t value)
     {
         dateTime.day = static_cast<uint8_t>(value);
     };
 
-    m_componentHour->onNumericDataReceived = [](uint32_t value)
+    m_componentHour->onNumericDataReceived = [](int32_t value)
     {
         dateTime.hour = static_cast<uint8_t>(value);
     };
 
-    m_componentMinute->onNumericDataReceived = [](uint32_t value)
+    m_componentMinute->onNumericDataReceived = [](int32_t value)
     {
         dateTime.minute = static_cast<uint8_t>(value);
     };
 
-    m_componentSecond->onNumericDataReceived = [](uint32_t value)
+    m_componentSecond->onNumericDataReceived = [](int32_t value)
     {
         dateTime.second = static_cast<uint8_t>(value);
     };
 
-    m_componentDayOfTheWeek->onNumericDataReceived = [](uint32_t value)
+    m_componentDayOfTheWeek->onNumericDataReceived = [](int32_t value)
     {
         dateTime.dayOfTheWeek = static_cast<uint8_t>(value);
     };
@@ -82,6 +82,15 @@ NextionComponent *NextionInterface::getComponent(uint8_t pageId, ComponentId com
     return nullptr;
 }
 
+void NextionInterface::clearBuffer()
+{
+    while (m_stream->available())
+    {
+        delay(10);
+        m_stream->read();
+    }
+}
+
 bool NextionInterface::update()
 {
     if (!m_stream->available())
@@ -100,6 +109,7 @@ bool NextionInterface::update()
         }
 
         m_buffer[m_currentIndex] = m_stream->read();
+        const auto returnCode = static_cast<NextionConstants::ReturnCode>(m_buffer[0]);
 
         if (!isBufferTerminated())
         {
@@ -107,10 +117,7 @@ bool NextionInterface::update()
             continue;
         }
 
-        const auto processResult = processBuffer();
-        m_currentIndex = 0;
-
-        if (processResult)
+        if (processBuffer())
         {
             return true;
         }
@@ -386,6 +393,7 @@ bool NextionInterface::processBuffer()
     {
         if (payloadSize() != ExpectedPayloadSize::TOUCH_EVENT)
         {
+            m_currentIndex = 0;
             return false;
         }
 
@@ -402,6 +410,7 @@ bool NextionInterface::processBuffer()
             return false;
         }
 
+        m_currentIndex = 0;
         onTouchEvent(m_buffer[1], m_buffer[2], static_cast<ClickEvent>(m_buffer[3]));
         return true;
     }
@@ -409,20 +418,41 @@ bool NextionInterface::processBuffer()
     {
         if (onPageIdUpdated == nullptr || payloadSize() != ExpectedPayloadSize::CURRENT_PAGE_NUMBER)
         {
+            m_currentIndex = 0;
             return false;
         }
 
+        m_currentIndex = 0;
         onPageIdUpdated(m_buffer[1]);
         return true;
     }
     case ReturnCode::NumericDataEnclosed:
     {
-        if (payloadSize() != ExpectedPayloadSize::NUMERIC_DATA_ENCLOSED)
-        {
+        if (m_componentRetrievingInteger == nullptr) {
             return false;
         }
 
-        uint32_t numericValue = m_buffer[1] | m_buffer[2] << 8 | m_buffer[3] << 16 | m_buffer[4] << 24;
+        if (payloadSize() < ExpectedPayloadSize::NUMERIC_DATA_ENCLOSED)
+        {
+            m_currentIndex++;
+            return false;
+        }
+        else if (payloadSize() > ExpectedPayloadSize::NUMERIC_DATA_ENCLOSED) {
+            m_currentIndex = 0;
+            return false;
+        }
+
+        int32_t numericValue = m_buffer[1] | m_buffer[2] << 8 | m_buffer[3] << 16 | m_buffer[4] << 24;
+
+        if (numericValue >> 31 & 1) // Two's complement
+        {
+            numericValue = ~numericValue;
+            numericValue += 1;
+            numericValue *= -1;
+        }
+
+        // Serial.println(numericValue);
+        m_currentIndex = 0;
 
         if (m_componentRetrievingInteger->onNumericDataReceived != nullptr)
         {
@@ -440,6 +470,7 @@ bool NextionInterface::processBuffer()
     {
         if (onStringDataReceived == nullptr || m_componentRetrievingText == nullptr)
         {
+            m_currentIndex = 0;
             return false;
         }
 
@@ -452,6 +483,7 @@ bool NextionInterface::processBuffer()
         }
 
         payload[dataLength - 1] = '\0';
+        m_currentIndex = 0;
 
         if (m_componentRetrievingText->onStringDataReceived != nullptr)
         {
@@ -466,6 +498,7 @@ bool NextionInterface::processBuffer()
     }
     default:
     {
+        m_currentIndex = 0;
         if (onUnhandledReturnCodeReceived)
         {
             onUnhandledReturnCodeReceived(m_buffer[0]);

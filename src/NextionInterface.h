@@ -49,7 +49,7 @@ public:
     }
 
     void (*onTouchEvent)(NextionConstants::ClickEvent event);
-    void (*onNumericDataReceived)(uint32_t data);
+    void (*onNumericDataReceived)(int32_t data);
     void (*onStringDataReceived)(char *data);
 
 private:
@@ -67,6 +67,7 @@ public:
     void registerComponent(NextionComponent &component);
     [[nodiscard]] NextionComponent *getComponent(uint8_t pageId, ComponentId componentId);
 
+    void clearBuffer();
     bool update();
     void reset();
     void sendRaw(const char *raw);

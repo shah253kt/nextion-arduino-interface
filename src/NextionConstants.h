@@ -121,4 +121,64 @@ namespace NextionConstants
         Friday,
         Saturday
     };
+
+    static inline uint8_t getExpectedResponseLength(ReturnCode returnCode)
+    {
+        switch (returnCode)
+        {
+        case ReturnCode::InvalidInstruction:
+        case ReturnCode::InstructionSuccessful:
+        case ReturnCode::InvalidComponentId:
+        case ReturnCode::InvalidPageId:
+        case ReturnCode::InvalidPictureId:
+        case ReturnCode::InvalidFontId:
+        case ReturnCode::InvalidFileOperation:
+        case ReturnCode::InvalidCrc:
+        case ReturnCode::InvalidBaudRateSetting:
+        case ReturnCode::InvalidWaveformId:
+        case ReturnCode::InvalidVariableNameOrAttribute:
+        case ReturnCode::InvalidVariableOperation:
+        case ReturnCode::AssignmentFailed:
+        case ReturnCode::EepromOperationFailed:
+        case ReturnCode::InvalidNumberOfParameters:
+        case ReturnCode::InputOutputOperationFailed:
+        case ReturnCode::EscapeCharacter:
+        case ReturnCode::VariableNameTooLong:
+        case ReturnCode::SerialBufferOverflow:
+        {
+            return 1 + TERMINATION_BYTES_SIZE;
+        }
+        case ReturnCode::TouchEvent:
+        {
+            return 4 + TERMINATION_BYTES_SIZE;
+        }
+        case ReturnCode::CurrentPageId:
+        {
+            return 2 + TERMINATION_BYTES_SIZE;
+        }
+        case ReturnCode::TouchCoordinateAwake:
+        case ReturnCode::TouchCoordinateSleep:
+        case ReturnCode::StringDataEnclosed:
+        {
+            return TERMINATION_BYTES_SIZE;
+        }
+        case ReturnCode::NumericDataEnclosed:
+        {
+            return 5 + TERMINATION_BYTES_SIZE;
+        }
+        case ReturnCode::AutoEnteredSleepMode:
+        case ReturnCode::AutoWakeFromSleep:
+        case ReturnCode::NextionReady:
+        case ReturnCode::StartMicroSdUpgrade:
+        case ReturnCode::TransparentDataFinished:
+        case ReturnCode::TransparentDataReady:
+        {
+            return 1 + TERMINATION_BYTES_SIZE;
+        }
+        default:
+        {
+            return 0;
+        }
+        }
+    }
 }
