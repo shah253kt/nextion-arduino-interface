@@ -218,14 +218,30 @@ void NextionInterface::setDate(uint8_t day, uint8_t month, uint16_t year)
 
 void NextionInterface::getDate()
 {
-    m_componentRetrievingInteger = m_componentDay;
-    get(NextionConstants::Command::RtcDay);
-    m_componentRetrievingInteger = m_componentMonth;
-    get(NextionConstants::Command::RtcMonth);
-    m_componentRetrievingInteger = m_componentYear;
-    get(NextionConstants::Command::RtcYear);
-    m_componentRetrievingInteger = m_componentDayOfTheWeek;
-    get(NextionConstants::Command::RtcDayOfTheWeek);
+    const NextionConstants::Command commands[] = {NextionConstants::Command::RtcDay,
+                                                  NextionConstants::Command::RtcMonth,
+                                                  NextionConstants::Command::RtcYear,
+                                                  NextionConstants::Command::RtcDayOfTheWeek};
+    NextionComponent *rtcDateComponents[] = {m_componentDay,
+                                             m_componentMonth,
+                                             m_componentYear,
+                                             m_componentDayOfTheWeek};
+
+    for (auto i = 0; i < sizeof(commands) / sizeof(commands[0]); i++)
+    {
+        const auto timeoutAt = millis() + 100;
+        m_componentRetrievingInteger = rtcDateComponents[i];
+        clearBuffer();
+        get(commands[i]);
+
+        while (millis() < timeoutAt)
+        {
+            if (update())
+            {
+                break;
+            }
+        }
+    }
 }
 
 void NextionInterface::setTime(uint8_t hour, uint8_t minute, uint8_t second)
@@ -237,12 +253,28 @@ void NextionInterface::setTime(uint8_t hour, uint8_t minute, uint8_t second)
 
 void NextionInterface::getTime()
 {
-    m_componentRetrievingInteger = m_componentHour;
-    get(NextionConstants::Command::RtcHour);
-    m_componentRetrievingInteger = m_componentMinute;
-    get(NextionConstants::Command::RtcMinute);
-    m_componentRetrievingInteger = m_componentSecond;
-    get(NextionConstants::Command::RtcSecond);
+    const NextionConstants::Command commands[] = {NextionConstants::Command::RtcHour,
+                                                  NextionConstants::Command::RtcMinute,
+                                                  NextionConstants::Command::RtcSecond};
+    NextionComponent *rtcTimeComponents[] = {m_componentHour,
+                                             m_componentMinute,
+                                             m_componentSecond};
+
+    for (auto i = 0; i < sizeof(commands) / sizeof(commands[0]); i++)
+    {
+        const auto timeoutAt = millis() + 100;
+        m_componentRetrievingInteger = rtcTimeComponents[i];
+        clearBuffer();
+        get(commands[i]);
+
+        while (millis() < timeoutAt)
+        {
+            if (update())
+            {
+                break;
+            }
+        }
+    }
 }
 
 char *NextionInterface::getDayOfTheWeek(NextionConstants::DayOfTheWeek day)
@@ -428,7 +460,8 @@ bool NextionInterface::processBuffer()
     }
     case ReturnCode::NumericDataEnclosed:
     {
-        if (m_componentRetrievingInteger == nullptr) {
+        if (m_componentRetrievingInteger == nullptr)
+        {
             return false;
         }
 
@@ -437,7 +470,8 @@ bool NextionInterface::processBuffer()
             m_currentIndex++;
             return false;
         }
-        else if (payloadSize() > ExpectedPayloadSize::NUMERIC_DATA_ENCLOSED) {
+        else if (payloadSize() > ExpectedPayloadSize::NUMERIC_DATA_ENCLOSED)
+        {
             m_currentIndex = 0;
             return false;
         }
